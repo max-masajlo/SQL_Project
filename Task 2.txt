@@ -1,0 +1,70 @@
+/* Max Masajlo, Ryan Foltz, Zach Volpe  */
+
+DROP TABLE employee CASCADE CONSTRAINTS PURGE;
+
+CREATE TABLE employee(
+    employee_id NUMBER(4) PRIMARY KEY,
+    first_name VARCHAR2(30) NOT NULL,
+    last_name VARCHAR2(30) NOT NULL,
+    street VARCHAR2(30) NOT NULL,
+    city VARCHAR2(30) NOT NULL,
+    state_code VARCHAR2(2) DEFAULT 'CA' NOT NULL,
+    zip_code VARCHAR2(30) NOT NULL,
+    phone VARCHAR2(10) UNIQUE NOT NULL,
+    email VARCHAR2(30) UNIQUE NOT NULL,
+    hire_date DATE NOT NULL,
+    job_title VARCHAR2(30) NOT NULL,
+    salary NUMBER(10) NOT NULL,
+    commission_pct NUMBER(2,2),
+    manager_id NUMBER(4) REFERENCES employee(employee_id),
+    CHECK(salary > 0),
+    CHECK(commission_pct BETWEEN 0.20 AND 0.30),
+    CHECK(employee_id >= 1000),
+    CHECK(employee_id <> manager_id)
+);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary) 
+VALUES (1000, 'Larry', 'Margaria', '123 who cares', 'San Luis Obispo', '77322', 1235469234, 'larrymargaria@gmail.com', '10/01/1990', 'Owner/Manager', 1000000 );
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id) 
+VALUES (1001, 'Jim', 'Kaney', '321 who cares', 'San Luis Obispo', '77322', 3457891234, 'jimkaney@gmail.com', '10/10/1990', 'Accounting Manager', 999999, 1000);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id) 
+VALUES (1002, 'Steve', 'Euro', '567 longview way', 'Santa Maria', '02355', 2348765678, 'steveeuro@gmail.com', '02/12/2000', 'Cashier', 34000, 1001);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id) 
+VALUES (1003, 'Alice', 'Credit', '567 weird Al way', 'Santa Maria', '23355', 2349875555, 'alicecredit@gmail.com', '08/12/2009', 'Bookkeeper', 56000, 1001);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id) 
+VALUES (1004, 'Norm', 'Allen', '123 Normal Al way', 'Jamestown', '34588', 3211231234, 'normallen@gmail.com', '09/20/2009', 'Service Manager', 300000, 1000);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id) 
+VALUES (1005, 'Alan', 'Wrench', '456 North Vermont way', 'Springtown', '98733', 2134325678, 'alanwrench@gmail.com', '12/21/2013', 'Service Worker', 85000, 1004);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id) 
+VALUES (1006, 'Woody', 'Apple', '789 swinger court', 'Danville', '45655', 5769234488, 'woodyapple@gmail.com', '11/23/2014', 'Service Worker', 30000, 1004);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id) 
+VALUES (1007, 'Sherry', 'Sophmore', '123 Homeless way', 'Jamestown', '34588', 1112223333, 'sherrysophmore@gmail.com', '02/20/2018', 'Cal Poly Intern', 10, 1006);
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id, commission_pct) 
+VALUES (1008, 'Mary', 'Long', '456 Who do we appreciate way', 'Livermore', '94588', 7789921234, 'marylong@gmail.com', '09/20/2001', 'Sales Manager', 300000, 1000, .25 );
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id, commission_pct) 
+VALUES (1009, 'Adam', 'Packer', '456 Victoria way', 'Franklin', '23477', 5553339966, 'adampacker@gmail.com', '12/21/2011', 'Salesperson', 10000, 1008, .22 );
+
+INSERT INTO employee (employee_id, first_name, last_name, street, city, zip_code, phone, email, hire_date, job_title, salary, manager_id, commission_pct) 
+VALUES (1010, 'Larry', 'Jones', '777 Moraga Drive', 'Brentwood', '00022', 1118889999, 'larryjones@gmail.com', '04/06/2010', 'Salesperson', 9000, 1008, .24 );
+
+
+CREATE OR REPLACE VIEW employee_list
+AS SELECT first_name ||' '|| last_name "Employee Name", phone "Phone Number", email "Email"
+FROM employee
+ORDER BY last_name;
+
+
+CREATE OR REPLACE VIEW employee_reporting 
+AS SELECT manager.first_name ||' '|| manager.last_name "Manager", manager.job_title "Job Title", reportee.first_name ||' '|| reportee.last_name "Reportee", reportee.job_title " Reportee Job Title"
+FROM employee Manager JOIN employee reportee
+ON (reportee.manager_id = manager.employee_id)
+ORDER BY manager.last_name ASC

@@ -1,0 +1,67 @@
+/* Max Masajlo, Ryan Foltz, Zach Volpe  */
+DROP TABLE service;
+DROP TABLE part;
+
+CREATE TABLE service( 
+    Service_code varchar2(20) PRIMARY KEY,
+    description varchar2(100) NOT NULL,
+    cost number(11,2) NOT NULL,
+    price number(11,2) NOT NULL,
+    months number(3) NOT NULL,
+    mileage number(13) NOT NULL,
+    CHECK(price > cost),
+    CHECK(cost > 0),
+    CHECK(price > 0),
+    CHECK(months > 0),
+    CHECK(mileage > 0)
+);
+/* add check constraints (assuming for stuff like cost < price) months (??) */
+INSERT INTO service VALUES ('OILCHG', 'Oil Change', 9.95, 10.95, 6, 6000);
+INSERT INTO service VALUES ('TIREROTATE', 'Tire Rotation', 6.95, 9.95, 12, 12000);
+INSERT INTO service VALUES ('FLUIDS', 'Fluid Replacement', 29.95, 49.96, 30, 30000);
+INSERT INTO service VALUES ('TUNEUPBASIC', 'Basic Engine tune up', 69.95, 149.95, 18, 18000);
+INSERT INTO service VALUES ('MULTIPOINTINSP', 'Multi-Point Inspection', 29.95, 59.95, 6, 6000);
+
+/* add 4 additional services of our choice */
+INSERT INTO service VALUES ('WASH', 'Exterior Wash and Dry', 24.95, 34.99, 2, 2000);
+INSERT INTO service VALUES ('PLSH', 'Polish', 100.00, 149.99, 6, 6000);
+INSERT INTO service VALUES ('VCUM', 'Interior Vacuuming', 50.00, 84.99, 4, 4000);
+INSERT INTO service VALUES ('TINT', 'Window Tint', 100.00, 199.99, 1, 120000);
+
+
+
+CREATE TABLE part(
+part_code varchar2(20) PRIMARY KEY,
+description varchar2(100) NOT NULL,
+cost number(11,2) NOT NULL,
+price number(11,2) NOT NULL,
+CHECK(price > cost),
+CHECK(cost > 0),
+CHECK(price > 0)
+);
+
+
+INSERT INTO part VALUES ('OIL10W30', 'Oil 10W30', 2.79, 3.95);
+INSERT INTO part VALUES ('OILFILTER', 'Oil Filter', 6.95, 11.95);
+INSERT INTO part VALUES ('WINSHIELDFLUID', 'Windshield fluid', 2.96, 4.95);
+INSERT INTO part VALUES ('SPARKPLUG4', 'Spark Plug set (4)', 9.95, 19.95);
+INSERT INTO part VALUES ('AIRFILTER', 'Air Filter', 3.95, 8.95);
+-- Add 4 additional parts
+INSERT INTO part VALUES ('CARBATTERY', 'Car Battery', 172.34, 193.99);
+INSERT INTO part VALUES ('ALTERNATOR', 'Alternator', 186.74, 212.94);
+INSERT INTO part VALUES ('RADIATOR', 'Radiator', 51.85, 67.96);
+INSERT INTO part VALUES ('BRAKEPAD4', 'Brake Pad set (4)', 33.18, 42.49);
+
+
+/* add check constraints */
+
+
+CREATE OR REPLACE VIEW service_list
+AS SELECT service_code "Service Code", description "Service Description", cost "Cost", price "Price", months "Months", mileage "Mileage"
+FROM service
+ORDER BY service_code;
+
+CREATE OR REPLACE VIEW part_list
+AS SELECT part_code "Part Code", description "Part Description", cost "Cost", price "Price"
+FROM part
+ORDER BY part_code;

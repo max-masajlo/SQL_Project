@@ -1,0 +1,379 @@
+/* Max Masajlo, Ryan Foltz, Zach Volpe  */
+
+DROP TABLE service_invoice CASCADE CONSTRAINTS PURGE;
+DROP TABLE sales_invoice CASCADE CONSTRAINTS PURGE;
+DROP TABLE vendor CASCADE CONSTRAINTS PURGE;
+DROP TABLE purchase_order CASCADE CONSTRAINTS PURGE;
+
+-- Tables sales_vehicle & service vehicle are included to allow this script to be ran multiple times without duplicate data errors
+DROP TABLE sales_vehicle;
+DROP TABLE service_vehicle;
+
+CREATE TABLE sales_vehicle(
+    vin             varchar2(17)    PRIMARY KEY,
+    year            number(4)       NOT NULL,
+    make            varchar2(20)    NOT NULL,
+    model           varchar2(20)    NOT NULL,
+    ext_color       varchar2(25)    NOT NULL,
+    trim            varchar2(25),
+    mileage         number(15)      NOT NULL,
+    condition       varchar2(20)    NOT NULL,
+    status          varchar2(20)    NOT NULL,
+    purchase_price  number(10)      NOT NULL,
+    list_price      number(10)      NOT NULL,
+    CHECK(status IN ('SOLD', 'FORSALE', 'TRADEIN')),
+    CHECK(mileage >= 0),
+    CHECK(purchase_price > 0),
+    CHECK(list_price > 0)
+    
+);
+
+CREATE TABLE service_vehicle(
+    vin     varchar2(17)    PRIMARY KEY,
+    year    number(4)       NOT NULL,
+    make    varchar2(20)    NOT NULL,
+    model   varchar2(20)    NOT NULL,
+    mileage number(15)      NOT NULL,
+    CHECK(mileage >= 0)
+);
+
+
+
+CREATE TABLE service_invoice( 
+    invoice_num     varchar2(4)     PRIMARY KEY,
+    service_date    date            NOT NULL,
+    customer_id     number(10)      references customer(customer_id) NOT NULL,
+    vin             varchar2(17)    references service_vehicle(vin) NOT NULL,
+    service_code    varchar2(20)    references service(service_code),
+    part_code       varchar2(20)    references part(part_code),
+    employee_id     number(4)       references employee(employee_id) NOT NULL,
+    terms           varchar2(30)    NOT NULL,
+    misc_charge     number(10,2),
+    CHECK(service_code IS NOT NULL or part_code IS NOT NULL),
+    CHECK(terms IN ('Credit', 'Cash', 'Check')),
+    CHECK(misc_charge >= 0)
+);
+
+
+
+CREATE TABLE sales_invoice(
+    invoice_num     varchar2(6)     PRIMARY KEY,
+    sale_date       date            NOT NULL,
+    customer_id     number(10)      references customer(customer_id) NOT NULL,
+    vin             varchar2(17)    references sales_vehicle(vin) NOT NULL,
+    salesman        number(4)       references employee(employee_id) NOT NULL,
+    approvee        number(4)       references employee(employee_id),
+    approved_date   date,
+    terms           varchar2(30)    NOT NULL,
+    trade_in_vin    varchar2(17)    references sales_vehicle(vin),
+    misc_costs      number(10,2),
+    discount        number(10,2),
+    CHECK(terms IN ('Credit', 'Cash', 'Check')),
+    CHECK(vin <> trade_in_vin),
+    CHECK(misc_costs >= 0),
+    CHECK(discount >= 0)
+);
+
+-- Assume we do not need an email for the vendor (1b in task 5 does not tell us to provide one)
+CREATE TABLE vendor(
+    vendor_id       varchar2(4)     PRIMARY KEY,
+    vendor_name     varchar2(30)    NOT NULL,
+    contact_fname   varchar2(30)    NOT NULL,
+    contact_lname   varchar2(30)    NOT NULL,
+    vendor_street   varchar2(30)    NOT NULL,
+    vendor_city     varchar2(30)    NOT NULL,
+    vendor_state    char(2)         NOT NULL,
+    vendor_zip      varchar2(10)    NOT NULL,
+    vendor_phone    varchar2(11)    NOT NULL,
+    vendor_fax      varchar2(30)    NOT NULL,
+    UNIQUE(vendor_phone),
+    UNIQUE(vendor_fax)
+);
+
+
+
+CREATE TABLE purchase_order( 
+    invoice_num     number(4)       PRIMARY KEY,
+    purchase_date   date            NOT NULL,
+    Vendor_id       varchar2(4)     references vendor(vendor_id) NOT NULL,
+    purchaser       number(4)       references employee(employee_id) NOT NULL,
+    terms           varchar2(30)    NOT NULL,
+    vin             varchar2(17)    references sales_vehicle(vin) NOT NULL,
+    CHECK(terms IN ('Credit', 'Cash', 'Check'))
+);
+
+-- PURCHASE ORDERS
+
+-- Transaction 1 
+insert into vendor values           (3000, 'Nikos Automobiles', 'Niko', 'Mollat', '123 fake data lane', 'Union City', 'CA', '94522', '9991113344', '4433111999');
+insert into sales_vehicle values    ('vin1234', 2013, 'Chevy', 'Chevelle', 'Black', 'red', 90999, 'New', 'FORSALE', '22000', '35000' );
+insert into purchase_order values   (5000, '03/12/2020', 3000, 1000, 'Cash', 'vin1234' );
+
+--Transaction 2
+insert into sales_vehicle values    ('vin4', 2019, 'Porsche' , '911', 'Blue', 'Silver', 112234, 'Used', 'FORSALE', '29000', '50000' );
+insert into purchase_order values   (5003, '02/12/2021', 3000, 1000, 'Cash', 'vin4' );
+
+
+--Transaction 3
+insert into vendor values           (3001, 'Honda Dealership', 'Alex', 'Miller', '4632 Darth Lane', 'Chico', 'CA', '37321', '9928292344', '4439291181');
+insert into sales_vehicle values    ('vin5', 2023, 'Dodge', 'Dart', 'Blue', 'Black', 0, 'New', 'FORSALE', '29000', '45000' );
+insert into purchase_order values   (5004, '10/10/2020', 3001, 1008, 'Credit', 'vin5' );
+
+--Transaction 4
+insert into vendor values           (3002, 'Chad Deals', 'Chad', 'Mann', '6942 High St', 'El Dorado', 'CA', '94566', '8272536344', '4431928229');
+insert into sales_vehicle values    ('vin6', 1996, 'Dodge' , 'Challenger', 'Blue', 'silver', 99000, 'Used', 'FORSALE', '18000', '26000' );
+insert into purchase_order values   (5005, '12/14/2019', 3002, 1001, 'Credit', 'vin6' );
+
+
+--Transaction 5
+insert into vendor values           (3003, 'Foltz Vehicles', 'Barry', 'Foltz', '1221 Coral Way', 'San Clemente', 'CA', '94292', '9140293843', '1209384728');
+insert into sales_vehicle values    ('vin2', 2015, 'Chevy', 'Corvette', 'Red', 'black', 512345, 'Used', 'FORSALE', '25000', '40000' );
+insert into purchase_order values   (5001, '11/12/2022', 3003, 1001, 'Credit', 'vin2' );
+
+--Transaction 6
+insert into sales_vehicle values    ('vin7', 1999, 'Toyota' , 'Land Cruiser', 'Silver', 'Beige', 65486, 'Used', 'FORSALE', '21300', '25450' );
+insert into purchase_order values   (5006, '05/23/2023', 3003, 1008, 'Cash', 'vin7' );
+
+
+--Transaction 7
+insert into vendor values           (3004, 'Vintage Car Dealership', 'Viktor', 'Sinclaire', '80 Beach St', 'Long Beach', 'CA', '92038', '8582129910', '99877853625');
+insert into sales_vehicle values    ('vin3', 2018, 'Honda', 'HRV', 'Silver', 'gray', 0, 'New', 'FORSALE', '12450', '15000' );
+insert into purchase_order values   (5002, '05/06/2023', 3004, 1004, 'Cash', 'vin3' );
+
+
+
+--Sales Invoices
+
+--Transaction 1 no trade-in vehicle
+INSERT INTO sales_invoice   (invoice_num, sale_date, customer_id, VIN, salesman, terms) 
+VALUES                      (4000, '05/17/2023', 1, 'vin2', 1010, 'Credit');
+
+UPDATE sales_invoice 
+SET approvee = 1000,
+approved_date = '05/20/2023' 
+WHERE invoice_num = 4000;
+
+UPDATE sales_vehicle 
+SET status = 'SOLD'
+WHERE vin = 'vin2';
+
+--TRansaction 2 no trade in vehicle
+INSERT INTO sales_invoice   (invoice_num, sale_date, customer_id, VIN, salesman, terms) 
+VALUES                      (4001, '04/12/2022', 1, 'vin3', 1009, 'Cash');
+
+UPDATE sales_invoice 
+SET approvee = 1008,
+approved_date = '04/15/2022' 
+WHERE invoice_num = 4001;
+
+UPDATE sales_vehicle 
+SET status = 'SOLD'
+WHERE vin = 'vin3';
+
+--Transaction 3 with trade in vehicle
+INSERT INTO sales_vehicle VALUES    ('vin8', 2009, 'Dodge', 'Charger', 'Black', 'Red', '123000', 'Used', 'TRADEIN', 13000, 20000);
+
+INSERT INTO sales_invoice   (invoice_num, sale_date, customer_id, VIN, salesman, terms, trade_in_vin)
+VALUES                      (4002, '06/15/2022', 4, 'vin1234', 1009, 'Check', 'vin8');
+
+UPDATE sales_invoice 
+SET approvee = 1008,
+approved_date = '06/15/2022' 
+WHERE invoice_num = 4002;
+
+UPDATE sales_vehicle 
+SET status = 'SOLD'
+WHERE vin = 'vin1234';
+
+UPDATE sales_vehicle
+SET status = 'FORSALE'
+WHERE vin = 'vin8';
+
+--Transaction 4 with trade in vehicle
+INSERT INTO sales_vehicle VALUES ('vin9', 2018, 'Dodge', 'Challenger', 'Yellow', 'White', '12000', 'Used', 'TRADEIN', 18000, 29999);
+
+INSERT INTO sales_invoice   (invoice_num, sale_date, customer_id, VIN, salesman, terms, trade_in_vin)
+VALUES                      (4003, '08/22/2022', 5, 'vin5', 1008, 'Credit', 'vin9');
+
+UPDATE sales_invoice 
+SET approvee = 1008,
+approved_date = '08/22/2022' 
+WHERE invoice_num = 4003;
+
+UPDATE sales_vehicle 
+SET status = 'SOLD'
+WHERE vin = 'vin5';
+
+UPDATE sales_vehicle
+SET status = 'FORSALE'
+WHERE vin = 'vin9';
+
+--Transaction 5 with trade in vehicle
+INSERT INTO sales_vehicle VALUES ('vin10', 1994, 'Ford', 'Bronco', 'White', 'Silver', '145000', 'Used', 'TRADEIN', 8000, 14000);
+
+INSERT INTO sales_invoice   (invoice_num, sale_date, customer_id, VIN, salesman, terms, trade_in_vin)
+VALUES                      (4004, '05/14/2020', 6, 'vin6', 1010, 'Cash', 'vin10');
+
+UPDATE sales_invoice 
+SET approvee = 1008,
+approved_date = '05/15/2020' 
+WHERE invoice_num = 4004;
+
+UPDATE sales_vehicle 
+SET status = 'SOLD'
+WHERE vin = 'vin6';
+
+UPDATE sales_vehicle
+SET status = 'FORSALE'
+WHERE vin = 'vin10';
+
+
+
+
+
+-- Service invoice  7 in total (3 sold by us // 3 not sold by us // )  (1 only service // 2 for only 1 part // 3 for 1 part & 1 service)
+
+--Transaction 1 (part & service car sold by us)
+INSERT INTO service_vehicle (vin, year, make, model, mileage) SELECT vin, year, make, model, mileage FROM sales_vehicle WHERE vin = 'vin2';
+
+INSERT INTO service_invoice (invoice_num, service_date, customer_id, vin, service_code, part_code, employee_id, terms)
+VALUES                      (6000, '10/10/2021', 1, 'vin2', 'OILCHG', 'OIL10W30', 1005, 'Credit' );
+
+--Transaction 2 (part & service car sold by us)
+INSERT INTO service_vehicle (vin, year, make, model, mileage) SELECT vin, year, make, model, mileage FROM sales_vehicle WHERE vin = 'vin3';
+
+INSERT INTO service_invoice (invoice_num, service_date, customer_id, vin, service_code, part_code, employee_id, terms)
+VALUES                      (6001, '11/12/2022', 2, 'vin3', 'TUNEUPBASIC', 'WINSHIELDFLUID', 1006, 'Check' );
+
+--Transaction 3 (part & service car NOT sold by us)
+INSERT INTO service_vehicle VALUES ('vin100', '2019', 'Ford', 'Raptor', '89000');
+
+INSERT INTO service_invoice (invoice_num, service_date, customer_id, vin, service_code, part_code, employee_id, terms)
+VALUES                      (6002, '10/10/2021', 3, 'vin100', 'PLSH', 'CARBATTERY', 1005, 'Cash' );
+
+--Transaction 4 (part car NOT sold by us)
+INSERT INTO service_vehicle VALUES ('vin101', '2020', 'Dodge', 'Ram', '99000');
+
+INSERT INTO service_invoice (invoice_num, service_date, customer_id, vin, part_code, employee_id, terms)
+VALUES                      (6003, '12/23/2022', 7, 'vin101', 'CARBATTERY', 1004, 'Cash' );
+
+
+--Transaction 5 (part car NOT sold by us)
+INSERT INTO service_vehicle VALUES ('vin102', '2023', 'Chevrolet', 'Corvette', '12000');
+
+INSERT INTO service_invoice (invoice_num, service_date, customer_id, vin, part_code, employee_id, terms)
+VALUES                      (6004, '01/23/2023', 8, 'vin102', 'RADIATOR', 1006, 'Check' );
+
+--Transaction 6 (service car NOT sold by us)
+INSERT INTO service_vehicle VALUES ('vin103', '1969', 'Dodge', 'Charger', '400000');
+
+INSERT INTO service_invoice (invoice_num, service_date, customer_id, vin, service_code, employee_id, terms)
+VALUES                      (6005, '10/10/2021', 3, 'vin100', 'TIREROTATE', 1004, 'Credit' );
+
+--Transaction 7 (service car sold by us)
+INSERT INTO service_vehicle (vin, year, make, model, mileage) SELECT vin, year, make, model, mileage FROM sales_vehicle WHERE vin = 'vin5';
+
+INSERT INTO service_invoice (invoice_num, service_date, customer_id, vin, service_code, employee_id, terms)
+VALUES                      (6006, '05/31/2023', 5, 'vin5', 'MULTIPOINTINSP', 1005, 'Credit' );
+
+
+-- customers who haven't bought a car from us (3,7,8,9,10)
+-- service Techs 1004 1005 1006
+
+
+
+-- Queries
+
+-- Car seller list
+CREATE OR REPLACE VIEW vendor_list
+AS SELECT vendor_name "Vendor Name", contact_fname ||' '|| contact_lname "Contact Name", vendor_street ||', '|| vendor_city ||' '|| vendor_state ||' '|| vendor_zip "Vendor Address",
+          vendor_phone "Phone Number", vendor_fax "Fax"
+FROM vendor
+ORDER BY vendor_name;
+
+
+-- Vehicle sales List
+-- NEED TO ADD ORDER BY CLAUSE
+
+CREATE OR REPLACE VIEW vehicle_sales_list ("Sales date", "Invoice Number", "Terms","Sales Person", "Approved By", "Date Approved",  "Customer name", "Customer Address", "Customer Phone", "Customer Email",
+                       "Vehicle VIN", "Vehicle Year", "Vehicle Make", "Vehicle Model", "Exterior Color", "Trim", "List Base Price", "Mileage", "Condition",
+                       "Trade in VIN", "Trade in Year", "Trade in Make", "Trade in Model", "Trade in Exterior Color", "Trade in Trim", "Trade in List Base Price", "Trade in Mileage", "Trade in Condition",
+                       "Selling Price", "Miscellaneous Costs", "Discount", "Trade Allowance", "Subtotal", "Taxes", "Total Selling Price")
+
+ AS SELECT s.sale_date, s.invoice_num, s.terms, e.first_name ||' '|| e.last_name, m.first_name ||' '|| m.last_name, s.approved_date, c.first_name ||' '|| c.last_name, c.street ||', '|| c.city ||' '|| c.state_code ||' '|| c.zip_code, c.phone, c.email,
+            v.vin, v.year, v.make, v.model, v.ext_color, v.trim, v.list_price, v.mileage, v.condition, t.vin, t.year, t.make, t.model, t.ext_color, t.trim, t.mileage, t.condition, t.purchase_price,
+            v.list_price, NVL(s.misc_costs,0), NVL(s.discount,0), NVL(t.purchase_price,0), 
+            (v.list_price + NVL(s.misc_costs,0) - NVL(s.discount,0) - NVL(t.purchase_price,0) ), (v.list_price + NVL(s.misc_costs,0) - NVL(s.discount,0) - NVL(t.purchase_price,0) )*.0725,
+            (v.list_price + NVL(s.misc_costs,0) - NVL(s.discount,0) - NVL(t.purchase_price,0) ) + ((v.list_price + NVL(s.misc_costs,0) - NVL(s.discount,0) - NVL(t.purchase_price,0) )*.0725)
+
+FROM sales_invoice s JOIN customer c
+ON (s.customer_id = c.customer_id)
+
+JOIN employee e
+ON (e.employee_id = s.salesman)
+
+JOIN employee m
+ON (m.employee_id = s.approvee)
+
+JOIN sales_vehicle v
+ON (s.vin = v.vin)
+
+LEFT OUTER JOIN sales_vehicle t
+ON (s.trade_in_vin = t.vin)
+
+ORDER BY s.invoice_num;
+
+
+
+
+-- Vehicle Purchase list
+-- Assume we do not need an email for the vendor
+
+CREATE OR REPLACE VIEW vehicle_purchase_list ("Purchase date", "Invoice Number", "Terms", "Purchase By", "Vendor name", "Vendor Contact Info", "Vendor Address", "Vendor Phone", "Vendor Fax",
+                       "Vehicle VIN", "Vehicle Year", "Vehicle Make", "Vehicle Model", "Exterior Color", "Trim", "List Base Price", "Mileage", "Condition", "Sales Amount", "shipping", "Taxes", "Total Selling Price")
+
+AS SELECT p.purchase_date, p.invoice_num, p.terms, e.first_name ||' '|| e.last_name, v.vendor_name, v.contact_fname ||' '|| v.contact_lname,
+          v.vendor_street ||', '|| v.vendor_city ||' '|| v.vendor_state ||' '|| v.vendor_zip, v.vendor_phone, v.vendor_fax,
+          c.vin, c.year, c.make, c.model, c.ext_color, c.trim, c.purchase_price, c.mileage, c.condition, c.purchase_price,
+          (c.purchase_price*.05), (c.purchase_price + (purchase_price*.05))* .0725, (c.purchase_price + (purchase_price*.05) + ((c.purchase_price + (purchase_price*.05))* .0725))
+
+ FROM purchase_order p JOIN employee e 
+ ON (p.purchaser = e.employee_id)
+
+ JOIN vendor v 
+ ON (v.vendor_id = p.vendor_id)
+
+ JOIN sales_vehicle c
+ ON (c.vin = p.vin);
+
+
+
+ -- Service Invoice List
+
+ CREATE OR REPLACE VIEW service_invoice_list ("Service date", "Invoice Number", "Terms", "Service Person", "Customer name", "Customer Address", "Customer Phone", "Customer Email",
+                        "Vehicle VIN", "Vehicle Mileage", "Service Code", "Service Description", "Service Charge", "Parts code", "Parts Description", "Parts Charge",
+                        "Total Service Charges", "Total Parts Charges", "Total Charges", "Misc", "Taxes", "Total")
+
+AS SELECT s.service_date, s.invoice_num, s.terms, e.first_name ||' '|| e.last_name, c.first_name ||' '|| c.last_name, c.street ||', '|| c.city ||' '|| c.state_code ||' '|| c.zip_code, c.phone, c.email,
+          v.vin, v.mileage, se.service_code, se.description, NVL(se.price,0), p.part_code, p.description, NVL(p.price,0),
+          NVL(se.price,0), NVL(p.price,0), (NVL(se.price,0) + NVL(p.price,0)), NVL(s.misc_charge,0)  ,( NVL(se.price,0) + NVL(p.price,0) + NVL(s.misc_charge,0) ) * .0725,
+          ( NVL(se.price,0) + NVL(p.price,0) + NVL(s.misc_charge,0) ) + (( NVL(se.price,0) + NVL(p.price,0) + NVL(s.misc_charge,0) ) * .0725)
+
+FROM service_invoice s JOIN employee e
+ON (s.employee_id = e.employee_id)
+
+JOIN customer c 
+ON (c.customer_id = s.customer_id)
+
+JOIN service_vehicle v
+ON (v.vin = s.vin)
+
+LEFT OUTER JOIN service se
+ON (se.service_code = s.service_code)
+
+LEFT OUTER JOIN part p
+ON (p.part_code = s.part_code);
+
+ 
+
+

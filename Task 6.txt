@@ -1,0 +1,180 @@
+/* Max Masajlo, Ryan Foltz, Zach Volpe  */
+
+-- Customer Reports 
+
+-- 1) List of customers who have purchased a car from us: Customer name, Phone
+CREATE OR REPLACE VIEW vehicle_purchase_list_6
+("Customer Name", "Phone")
+AS SELECT first_name ||' '|| last_name, phone
+FROM customer
+WHERE customer_id IN (SELECT customer_id from sales_invoice);
+
+-- 2) Number of customers grouped by city: City, number of customers in that city
+CREATE OR REPLACE VIEW customers_by_city_6
+("City", "Number of customers in City")
+AS SELECT city, COUNT(customer_id)
+FROM customer
+GROUP BY city;
+
+-- 3) List of customers who have purchased a car from us but have not had a car serviced with us: Customer Name, Phone
+CREATE OR REPLACE VIEW vehicle_purchase_noservice_list_6
+("Customer Name", "Phone")
+AS SELECT first_name ||' '|| last_name, phone
+FROM customer
+WHERE customer_id IN (SELECT customer_id from sales_invoice)
+AND 
+customer_id NOT IN (SELECT customer_id from service_invoice);
+
+
+-- 4) List of all customers who are interested in a Porsche (or choose a vehicle type if you don’t have
+-- a Porsche in the list of interests) and their interest is still relevant (i.e., end date hasn’t passed ...
+--include those who have a null value for the end date): Customer Name, Phone, End date
+
+CREATE OR REPLACE VIEW porsche_preference_6
+("Customer Name", "Phone", "End Date")
+AS SELECT c.first_name ||' '|| c.last_name, c.phone, p.end_date
+FROM customer c JOIN preference p
+ON (c.customer_id = p.customer_id)
+WHERE c.customer_id IN (SELECT p.customer_id from preference WHERE p.vehicle_make = 'Porsche') 
+AND 
+SYSDATE < ANY (SELECT p.end_date from preference WHERE p.vehicle_make = 'Porsche');
+
+-- 5) List of customers who bought a car from us and did not bring in a trade in. Customer Names
+CREATE OR REPLACE VIEW vehicle_purchase_notrade_6
+("Customer Name")
+AS SELECT first_name ||' '|| last_name
+FROM customer
+WHERE customer_id IN (SELECT customer_id from sales_invoice WHERE trade_in_vin IS NULL);
+
+
+-- 6) List of best Customer (two queries, one for each of the following):
+
+-- a. Highest number of car’s purchased: Customer Name, number of cars purchased
+CREATE OR REPLACE VIEW best_customer_6
+("Customer Name", "Number of Cars Purchased")
+AS SELECT c.first_name || ' ' || c.last_name, COUNT(s.customer_id)
+FROM customer c JOIN sales_invoice s 
+ON (c.customer_id = s.customer_id)
+GROUP BY c.customer_id, c.first_name, c.last_name
+ORDER BY COUNT(s.customer_id) DESC
+FETCH FIRST 1 ROW ONLY;
+
+-- b. Highest total profit we made from the customer: Customer Name, sum of profit from all
+-- the cars they bought (Selling price less discount ... do not include TradeIn allowances in calculating profit)
+CREATE OR REPLACE VIEW best_profit_6
+("Customer Name", "Total Profit")
+AS SELECT c.first_name || ' ' || c.last_name, SUM(s.list_price - NVL(si.discount,0))
+FROM customer c JOIN sales_invoice si ON (c.customer_id = si.customer_id)
+JOIN sales_vehicle s ON (s.vin = si.vin)
+GROUP BY c.customer_id, c.first_name, c.last_name
+ORDER BY SUM(s.list_price - NVL(si.discount,0)) DESC
+FETCH FIRST 1 ROW ONLY;
+
+
+-- Purchasing Reports
+
+-- 7) List the Manufacturer that we paid the most amount of total dollars to (this is not just the
+--    highest for one car purchase but the sum of money paid to a manufacturer for all the cars
+--    bought from them): Manufacturer Name, total amount paid (show ties)
+
+CREATE OR REPLACE VIEW highest_vendor_6
+("Vendor Name", "Total Amount Paid")
+AS SELECT v.vendor_name, SUM(s.purchase_price)
+FROM vendor v JOIN purchase_order p 
+ON (v.vendor_id = p.vendor_id)
+JOIN sales_vehicle s
+ON (p.vin = s.vin)
+GROUP BY v.vendor_name
+ORDER BY SUM(s.purchase_price) DESC
+FETCH FIRST 1 ROW WITH TIES;
+
+
+-- 8) List the manufacturer that sold us the most number of vehicles? Manufacturer Name, total
+--    number of cars sold to use (show ties)
+CREATE OR REPLACE VIEW vendor_most_cars_6
+("Vendor Name", "Total Number of Cars Sold")
+AS SELECT v.vendor_name, COUNT(p.vendor_id)
+FROM vendor v JOIN purchase_order p 
+ON (v.vendor_id = p.vendor_id)
+GROUP BY v.vendor_name
+ORDER BY COUNT(p.vendor_id) DESC
+FETCH FIRST 1 ROW WITH TIES;
+
+
+
+-- Sales Reports
+
+-- 9) List of cars sold by us in the past 30 days of the date the query is being run (i.e., you cannot
+--    hard code the date): VIN, Make, Model, List Price
+CREATE OR REPLACE VIEW cars_sold_30days_6
+("VIN", "Make", "Model", "List price")
+AS SELECT vin, make, model, list_price
+FROM sales_vehicle
+WHERE vin IN (SELECT vin FROM sales_invoice WHERE sale_date > (SYSDATE - 30));
+
+
+
+-- 10) 10. Most popular make of car sold (which make of car was sold the most times): Make, Number Sold (show ties)
+CREATE OR REPLACE VIEW best_model_6
+("Make", "Number Sold")
+AS SELECT make, COUNT(vin)
+FROM sales_vehicle
+WHERE status = 'SOLD'
+GROUP BY make
+ORDER BY COUNT(vin) DESC
+FETCH FIRST 1 ROW WITH TIES;
+
+-- 11) Sum of the total profit from car sales (cost of vehicle less selling price less discount): Amount
+CREATE OR REPLACE VIEW car_sales_profit_6
+("Amount")
+AS SELECT SUM(s.list_price - s.purchase_price - NVL(si.discount,0))
+FROM sales_invoice si JOIN sales_vehicle s ON (s.vin = si.vin);
+
+
+-- 12) 12. List of best “Sales Person” (two queries, one for each of the following)
+
+-- a) Highest commissions: Sales person name, total commissions earned (show ties)
+CREATE OR REPLACE VIEW best_commission_6
+("Sales Person", "Commission")
+AS SELECT e.first_name||' '||e.last_name, SUM((v.list_price*NVL(e.commission_pct,0)))
+FROM employee e
+JOIN sales_invoice si
+ON (e.employee_id = si.salesman)
+JOIN sales_vehicle v
+ON (si.vin = v.vin)
+GROUP BY si.salesman, e.first_name, e.last_name
+ORDER BY SUM((v.list_price*NVL(e.commission_pct,0))) DESC
+FETCH FIRST 1 ROW WITH TIES;
+
+
+-- b) Highest number of cars sold: Sales person name, number of vehicles sold. (show ties)
+CREATE OR REPLACE VIEW most_cars_sold_6
+("Sales Person", "Number of Vehicles Sold")
+AS SELECT e.first_name||' '||e.last_name, COUNT(si.salesman)
+FROM employee e JOIN sales_invoice si
+ON e.employee_id = si.salesman
+GROUP BY e.first_name, e.last_name, si.salesman
+ORDER BY COUNT(vin) DESC
+FETCH FIRST 1 ROW WITH TIES;
+
+
+-- Service Reports
+
+-- 13. Sum of profits (price less cost) for all services performed where the profits are grouped by
+--     service code / service name (show both): Service Code, Service Name, Total Profit.
+CREATE OR REPLACE VIEW sum_profits_of_service_6
+("Service Code", "Service Name", "Total Profit")
+AS SELECT s.service_code, s.description, SUM(s.price) - SUM(s.cost)
+FROM service s JOIN service_invoice si
+ON s.service_code = si.service_code
+GROUP BY s.service_code, s.description;
+
+
+-- 14. Sum of profits (price less cost) for all parts sold where the profits are grouped by part code /
+--     part name (show both): Part Code, Part Name, Total Profit.
+CREATE OR REPLACE VIEW sum_profits_of_parts_6
+("Part Code", "Part Name", "Total Profit")
+AS SELECT p.part_code, p.description, SUM(p.price) - SUM(p.cost)
+FROM part p JOIN service_invoice si
+ON p.part_code = si.part_code
+GROUP BY p.part_code, p.description;
